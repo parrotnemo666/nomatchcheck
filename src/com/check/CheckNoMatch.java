@@ -19,10 +19,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 
-
 public class CheckNoMatch {
 
-//	private static Logger logger = Logger.getLogger(CheckNoMatch.class);
+	private static Logger logger = Logger.getLogger(CheckNoMatch.class);
 
 	static class LoadProperties {
 		private static Properties props;
@@ -41,26 +40,57 @@ public class CheckNoMatch {
 //
 	}
 
+	 private static String decode(String key) {
+		 HQ_AESEncryption AESEncrypt = new  HQ_AESEncryption();
+	        String secretKey = "Hualiteq123$";
+	        String StringKey = key;
+	        try {
+	        	key = AESEncrypt.decrypt(key, secretKey);
+	           
+	            return key; // 在 try 块内返回值
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	        }
+	        return StringKey; // 在 catch 块内返回值
+	    }
+	
 	public static void main(String[] args) throws ClassNotFoundException, SecurityException, IOException {
 		// 本機環境
 //		Properties props = LoadProperties.load("src/application.properties");
 //		PropertyConfigurator.configure("src/log4j.properties"); 
 		// 測試&正式環境
 		Properties props = LoadProperties.load("/gcti/checknomatchtest/application.properties");
-//		PropertyConfigurator.configure("/gcti/checknomatchtest/log4j.properties");
+		PropertyConfigurator.configure("/gcti/checknomatchtest/log4j.properties");
+		logger.info("執行告警程式");
 
-//		logger.info("執行告警程式");
-
+		 
 		List<String> keyword = Arrays.asList(props.getProperty("check.keyword").split(","));
-		String gctisql = (props.getProperty("datasource.url"));
-		String gctiusername = (props.getProperty("datasource.username"));
-		String gctipassword = (props.getProperty("datasource.password"));
+		String gctisqlstr = decode((props.getProperty("datasource.url")));
+		String gctiusernamestr = decode((props.getProperty("datasource.username")));
+		String gctipasswordstr = decode((props.getProperty("datasource.password")));
+	
+		String gctisql  = gctisqlstr;
+		String gctiusername = gctiusernamestr;
+		String gctipassword = gctipasswordstr;
 //
-		String oraclesql = (props.getProperty("datasource.url2"));
-		String oracleusername = (props.getProperty("datasource.username2"));
-		String oraclepassword = (props.getProperty("datasource.password2"));
-		String resultsetsql = (props.getProperty("sql.ResultSet"));
 
+		String oraclesqlstr = decode((props.getProperty("datasource.url2")));
+		String oracleusernamestr = decode((props.getProperty("datasource.username2")));
+		String oraclepasswordstr = decode((props.getProperty("datasource.password2")));
+		String resultsetsql = (props.getProperty("sql.ResultSet"));
+		
+		String oraclesql  = oraclesqlstr;
+		String oracleusername = oracleusernamestr;
+		String oraclepassword = oraclepasswordstr;
+//		System.out.println("執行AI流程異常告警-86");
+//		System.out.println(gctisql);
+//		System.out.println(gctiusername);
+//		System.out.println(gctipassword);
+//
+//		System.out.println(oraclesql);
+//		System.out.println(oracleusername);
+//		System.out.println(oraclepassword);
+		
 		AtomicInteger i = new AtomicInteger(0);
 		int allowable = Integer.parseInt((props.getProperty("check.allow")));
 
@@ -76,12 +106,12 @@ public class CheckNoMatch {
 //				
 		) {
 			System.out.println("執行AI流程異常告警");
-//			logger.info("執行AI流程異常告警");
+			logger.info("執行AI流程異常告警");
 			List<String> testList = new ArrayList<String>();
 			i.set(0);
 			while (rs.next()) {
 				System.out.println(rs.getString(1));
-//				logger.info("CallUUID偵測 " + rs.getString(1));
+				logger.info("CallUUID偵測 " + rs.getString(1));
 
 				keyword.forEach(s -> {
 					try {
@@ -101,7 +131,7 @@ public class CheckNoMatch {
 				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 				String currdate = sdf.format(today);
 				System.out.println("已達3次，發AI流程異常告警");
-//				logger.info("已達3次，發小i異常告警");
+				logger.info("已達3次，發AI流程異常告警");
 				// System.out.println(testList);
 				String Email_SUBJECT = "csr_voice AI流程異常告警 " + currdate;
 				String Msg_CONTENT = "csr_voice AI流程異常告警 " + currdate;
@@ -114,7 +144,7 @@ public class CheckNoMatch {
 
 				String Email_CONTENT = str;
 				System.out.println(Email_CONTENT);
-//				logger.info(Email_CONTENT);
+				logger.info(Email_CONTENT);
 				String customerID = "";
 
 				// 配置檔讀取簡訊&Email清單

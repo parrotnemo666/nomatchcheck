@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Class-Path: ./lib/sqljdbc4.jar ./lib/ojdbc8.jar
+Class-Path: ./lib/sqljdbc4.jar ./lib/ojdbc8.jar ./lib/log4j-1.2.17.jar
 Main-Class: com.check.CheckNoMatch
 
 
