@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Class-Path: ./lib/sqljdbc4.jar ./lib/ojdbc8.jar ./lib/log4j-core-2.24.1.jar ./lib/log4j-api-2.24.1.jar
+Main-Class: com.check.CheckNoMatch
+
+
