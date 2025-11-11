@@ -5,179 +5,147 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
+import java.util.logging.Logger;
+//import org.apache.logging.log4j.core.config.Configurator;
 
+/**
+ * CSR - AI告警程式 (簡化重構版)
+ *
+ * 流程:
+ * 1. AI告警檢查 (必定執行)
+ * 2. 遵法告警檢查 (僅在AI未觸發時執行)
+ * 3. 錄音長度檢查 (獨立執行)
+ */
 public class CheckNoMatch {
 
-	private static Logger logger = Logger.getLogger(CheckNoMatch.class);
+    private static final Logger logger = Logger.getLogger(CheckNoMatch.class.getName());
 
-	static class LoadProperties {
-		private static Properties props;
+    /**
+     * 屬性文件加載器
+     */
+    private static class LoadProperties {
+        public static Properties load(String path) {
+            Properties props = new Properties();
+            try (FileInputStream fis = new FileInputStream(path)) {
+                props.load(fis);
+                logger.info("配置文件加載成功");
+            } catch (FileNotFoundException e) {
+                logger.severe("配置文件不存在: " + path + ", 錯誤: " + e.getMessage());
+            } catch (IOException e) {
+                logger.severe("配置文件讀取錯誤: " + e.getMessage());
+            }
+            return props;
+        }
+    }
 
-		public static Properties load(String PropertiesPath) {
-			props = new Properties();
-			try {
-				props.load(new FileInputStream(PropertiesPath));
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			return props;
-		}
-//
-	}
+    /**
+     * 解密配置
+     */
+    private static String decode(String key) {
+        String secretKey = "Hualiteq123$";
+        try {
+            return HQ_AESEncryption.decrypt(key, secretKey);
+        } catch (Exception e) {
+            logger.fine("解密失敗，使用原始值: " + e.getMessage());
+            return key;
+        }
+    }
 
-	 private static String decode(String key) {
-		 HQ_AESEncryption AESEncrypt = new  HQ_AESEncryption();
-	        String secretKey = "Hualiteq123$";
-	        String StringKey = key;
-	        try {
-	        	key = AESEncrypt.decrypt(key, secretKey);
-	           
-	            return key; // 在 try 块内返回值
-	        } catch (Exception e) {
-	            e.printStackTrace();
-	        }
-	        return StringKey; // 在 catch 块内返回值
-	    }
-	
-	public static void main(String[] args) throws ClassNotFoundException, SecurityException, IOException {
-		// 本機環境
-//		Properties props = LoadProperties.load("src/application.properties");
-//		PropertyConfigurator.configure("src/log4j.properties"); 
-		// 測試&正式環境
-		Properties props = LoadProperties.load("/gcti/checknomatchtest/application.properties");
-		PropertyConfigurator.configure("/gcti/checknomatchtest/log4j.properties");
-		logger.info("執行告警程式");
+    /**
+     * 主程序
+     */
+    public static void main(String[] args) {
 
-		 
-		List<String> keyword = Arrays.asList(props.getProperty("check.keyword").split(","));
-		String gctisqlstr = decode((props.getProperty("datasource.url")));
-		String gctiusernamestr = decode((props.getProperty("datasource.username")));
-		String gctipasswordstr = decode((props.getProperty("datasource.password")));
-	
-		String gctisql  = gctisqlstr;
-		String gctiusername = gctiusernamestr;
-		String gctipassword = gctipasswordstr;
-//
+        logger.info("========================================");
+        logger.info("CSR - AI告警程式 v2.0 啟動");
+        logger.info("========================================");
 
-		String oraclesqlstr = decode((props.getProperty("datasource.url2")));
-		String oracleusernamestr = decode((props.getProperty("datasource.username2")));
-		String oraclepasswordstr = decode((props.getProperty("datasource.password2")));
-		String resultsetsql = (props.getProperty("sql.ResultSet"));
-		
-		String oraclesql  = oraclesqlstr;
-		String oracleusername = oracleusernamestr;
-		String oraclepassword = oraclepasswordstr;
-//		System.out.println("執行AI流程異常告警-86");
-//		System.out.println(gctisql);
-//		System.out.println(gctiusername);
-//		System.out.println(gctipassword);
-//
-//		System.out.println(oraclesql);
-//		System.out.println(oracleusername);
-//		System.out.println(oraclepassword);
-		
-		AtomicInteger i = new AtomicInteger(0);
-		int allowable = Integer.parseInt((props.getProperty("check.allow")));
+        // ========== 步驟1: 載入配置 ==========
+        Properties props = LoadProperties.load("C:\\WorkSpace\\check-nomatch-ai-csr1106\\src\\application.properties");
+//        Properties props = LoadProperties.load("C:\WorkSpace\check-nomatch-ai-csr1106\src\application.properties");
+//        Configurator.initialize(null, "/gcti/checknomatchtest/log4j2.xml");
 
-		Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-		Class.forName("oracle.jdbc.OracleDriver");
-		try (
+        List<String> keywords = Arrays.asList(props.getProperty("check.keyword").split(","));
+        int allowable = Integer.parseInt(props.getProperty("check.allow"));
+        List<String> phoneList = Arrays.asList(props.getProperty("phone.list").split(","));
+        List<String> emailList = Arrays.asList(props.getProperty("email.list").split(","));
 
-				Connection con = DriverManager.getConnection(gctisql, gctiusername, gctipassword);
-				Connection con1 = DriverManager.getConnection(oraclesql, oracleusername, oraclepassword);
-				Statement stmt = con.createStatement();
-				ResultSet rs = stmt.executeQuery(resultsetsql);
-				Statement stmt1 = con1.createStatement();
-//				
-		) {
-			System.out.println("執行AI流程異常告警");
-			logger.info("執行AI流程異常告警");
-			List<String> testList = new ArrayList<String>();
-			i.set(0);
-			while (rs.next()) {
-				System.out.println(rs.getString(1));
-				logger.info("CallUUID偵測 " + rs.getString(1));
+        logger.info(String.format("關鍵字: %s, 閾值: %d", keywords, allowable));
 
-				keyword.forEach(s -> {
-					try {
-						if (rs.getString("Reason_Memo").contains(s)) {
-							i.addAndGet(1); // 有符合就加1
-							testList.add(String.valueOf(rs.getString("CallUUID") + "," + rs.getString("Flow_id") + ","
-									+ rs.getString("Reason_Memo")));
-						}
-					} catch (SQLException e) {
-						e.printStackTrace();
-					}
-				});
-			}
+        // 解密數據庫連接
+        String gctiSql = decode(props.getProperty("link.config1"));
+        String gctiUsername = decode(props.getProperty("link.config2"));
+        String gctiPassword = decode(props.getProperty("link.config3"));
 
-			if (i.get() >= allowable) {
-				Date today = new Date();
-				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-				String currdate = sdf.format(today);
-				System.out.println("已達3次，發AI流程異常告警");
-				logger.info("已達3次，發AI流程異常告警");
-				// System.out.println(testList);
-				String Email_SUBJECT = "csr_voice AI流程異常告警 " + currdate;
-				String Msg_CONTENT = "csr_voice AI流程異常告警 " + currdate;
-				String str = "";
-				for (String check : testList) {
-					str += check + "; ";
-				}
+        String oracleSql = decode(props.getProperty("link.config21"));
+        String oracleUsername = decode(props.getProperty("link.config22"));
+        String oraclePassword = decode(props.getProperty("link.config23"));
 
-				// 模組化-------------------
+        // ========== 步驟2: 建立連接並執行檢查 ==========
+        try (
+                Connection connGcti = DriverManager.getConnection(gctiSql, gctiUsername, gctiPassword);
+                Connection connOra = DriverManager.getConnection(oracleSql, oracleUsername, oraclePassword);
+                Statement stmtGcti = connGcti.createStatement();
+                Statement stmtOra = connOra.createStatement()
+        ) {
+            logger.info("資料庫連接成功");
+            logger.info("========================================");
 
-				String Email_CONTENT = str;
-				System.out.println(Email_CONTENT);
-				logger.info(Email_CONTENT);
-				String customerID = "";
+            // 創建告警通知器
+            AlertNotifier notifier = new AlertNotifier(stmtOra, phoneList, emailList);
 
-				// 配置檔讀取簡訊&Email清單
-				List<String> phonelist = Arrays.asList(props.getProperty("phone.list").split(","));
-				List<String> emaillist = Arrays.asList(props.getProperty("email.list").split(","));
+            // ========== 階段1: AI告警檢查 ==========
+            logger.info("階段1: AI告警檢查");
+            AIAlertChecker aiChecker = new AIAlertChecker(stmtGcti, props, keywords, allowable);
+            AIAlertChecker.CheckResult aiResult = aiChecker.check();
 
-				//發簡訊
-				for (String phonenum : phonelist) {
+            boolean isSend = false;
+            if (aiResult.isNeedAlert()) {
+                notifier.sendAIAlert(aiResult.getRecords(), allowable);
+                isSend = true;
+            }
 
-					String msgsql = "INSERT INTO AG_SEND_MESS_DATA ("
-							+ "IS_SEND,IS_REVIEW,SEND_TO_REVIEW,MODIFY_ID,CREATE_ID,IDENTITY_FIELD,MESS_BUS_TYPE, MESS_SEND_TYPE, MESS_TYPE_CODE,  MESS_ITEM_CODE, CONTENT, SEND_TO, CREATE_NAME, CUST_ID "
-							+ ") VALUES('W','N','N','00000','00000',SQ_SEND_MESS_DATA.NEXTVAL,'2','1','W', 'W12', '"
-							+ Msg_CONTENT + "','" + phonenum + "','GVP','')";
-					int rs0_1 = stmt1.executeUpdate(msgsql);
-				}
+            logger.info("----------------------------------------");
 
-				// 發email
-				for (String email : emaillist) {
+            // ========== 階段2: 遵法告警檢查 ==========
+            if (!isSend) {
+                logger.info("階段2: 遵法告警檢查");
+                ComplianceAlertChecker complianceChecker =
+                        new ComplianceAlertChecker(connGcti, props, keywords, allowable);
+                ComplianceAlertChecker.CheckResult complianceResult = complianceChecker.check();
 
-					String emailsql = "INSERT INTO AG_SEND_MESS_DATA ("
-							+ "IS_SEND,IS_REVIEW,SEND_TO_REVIEW,MODIFY_ID,CREATE_ID,IDENTITY_FIELD,MESS_BUS_TYPE, MESS_SEND_TYPE, MESS_TYPE_CODE,  MESS_ITEM_CODE, SUBJECT,  CONTENT,   SEND_TO,  CREATE_NAME, CUST_ID "
-							+ ")VALUES('W','N','N','00000','00000',SQ_SEND_MESS_DATA.NEXTVAL,'2','2','W', 'W12', '"
-							+ Email_SUBJECT + "','" + Email_CONTENT + "','" + email + "','GVP','" + customerID + "' )";
-					int rs0_2 = stmt1.executeUpdate(emailsql);
-				}
-				// 模組化-------------------
+                if (complianceResult.isNeedAlert()) {
+                    notifier.sendAIAlert(complianceResult.getRecords(), allowable);
+                }
+            } else {
+                logger.info("階段2: 遵法告警檢查 - 已跳過 (AI已觸發)");
+            }
 
-		}
+            logger.info("----------------------------------------");
 
-		} catch (Exception e) {
-			System.out.println(e);
-		}
+            // ========== 階段3: 錄音長度檢查 ==========
+            logger.info("階段3: 錄音長度檢查");
+            RecordGVPChecker gvpChecker = new RecordGVPChecker(connGcti, props);
+            RecordGVPChecker.CheckResult gvpResult = gvpChecker.check();
 
-	}
+            if (gvpResult.isNeedAlert()) {
+                notifier.sendGVPAlert(gvpResult.getRecords());
+            }
 
+            logger.info("========================================");
+
+        } catch (Exception e) {
+            logger.severe("程式執行錯誤: " + e.getMessage());
+        }
+
+        logger.info("CSR - AI告警程式執行完畢");
+        logger.info("========================================");
+    }
 }
+
+
